@@ -10,7 +10,6 @@ from TS.Tipo import OperadorAritmetico, TIPO
 from TS.Excepcion import Excepcion
 from TS.Arbol import Arbol
 from TS.TablaSimbolos import TablaSimbolos
-from Abstract.Instruccion import Instruccion
 from Instrucciones.Imprimir import Imprimir
 from Expresiones.Primitivos import Primitivos
 from TS.Tipo import OperadorAritmetico, OperadorLogico, TIPO, OperadorRelacional
@@ -55,6 +54,7 @@ reservadas = {
 # Tokens
 tokens = [
     'PUNTOCOMA',
+    'DOSPUNTOS',
     'PARA',
     'PARC',
     'LLAVEA',
@@ -87,6 +87,7 @@ tokens = [
 
 # Asignacion de valor de tokens
 t_PUNTOCOMA = r';'
+t_DOSPUNTOS = r':'
 t_PARA = r'\('
 t_PARC = r'\)'
 t_LLAVEA= r'{'
@@ -169,13 +170,13 @@ def t_CADENA(t):
 
 # Comentario multilinea 
 def t_COMENTARIO_MULTILINEA(t):
-    r'\#\*(.|\n)*\*\#'
+    r'\#\*(.|\n)*?\*\#'
     t.lexer.lineno += t.value.count('\n')
     
 # Comentario simple 
 def t_COMENTARIO_SIMPLE(t):
     r'\#.*\n'
-    t.lexer.lineno += t.value.count('\n')
+    t.lexer.lineno += 1
 
 # Caracteres ignorados
 t_ignore = " \t"
@@ -233,6 +234,9 @@ from Instrucciones.Asignacion import Asignacion
 from Instrucciones.If import If 
 from Instrucciones.While import While
 from Instrucciones.Break import Break
+from Instrucciones.For import For
+from Instrucciones.Switch import Switch
+from Instrucciones.Case import Case
 from Instrucciones.Main import Main
 from Instrucciones.Funcion import Funcion
 from Instrucciones.Llamada import Llamada
@@ -270,6 +274,8 @@ def p_instruccion(t) :
                         | asignacion_instr finins
                         | asignacion2_instr finins
                         | if_instr
+                        | switch_instr
+                        | for_instr
                         | while_instr
                         | break_instr finins
                         | main_instr
@@ -352,6 +358,68 @@ def p_if3(t) :
     'if_instr     : RIF PARA expresion PARC LLAVEA instrucciones LLAVEC RELSE if_instr'
     t[0] = If(t[3], t[6], None, t[9], t.lineno(1), find_column(input, t.slice[1]))
     
+#///////////////////////////////////////FOR//////////////////////////////////////////////////
+
+def p_for_instr(t):
+    '''
+    for_instr : RFOR PARA asignacion_instr PUNTOCOMA expresion PUNTOCOMA asignacion2_instr PARC LLAVEA instrucciones LLAVEC
+    '''
+    t[0] = For(t[3],t[5],t[7],t[10],t.lineno(1), find_column(input, t.slice[1]))
+def p_for_instr2(t):
+    '''
+    for_instr : RFOR PARA declaracion_for PUNTOCOMA expresion PUNTOCOMA asignacion2_instr PARC LLAVEA instrucciones LLAVEC
+    '''
+    t[0] = For(t[3],t[5],t[7],t[10],t.lineno(1), find_column(input, t.slice[1]))
+def p_for_instr3(t):
+    '''
+    for_instr : RFOR PARA expresion PUNTOCOMA expresion PUNTOCOMA asignacion2_instr PARC LLAVEA instrucciones LLAVEC    
+    '''
+    t[0] = For(t[3],t[5],t[7],t[10],t.lineno(1), find_column(input, t.slice[1]))
+def p_declaracion_for(t):
+    '''
+    declaracion_for :  tipo_for ID IGUAL expresion
+    '''
+    t[0] = Declaracion(t[1], t[2], t.lineno(2), find_column(input, t.slice[2]), t[4])
+    
+#///////////////////////////////////////SWITCH//////////////////////////////////////////////////
+def p_switch_instr(t):
+    '''
+    switch_instr : RSWITCH PARA expresion PARC LLAVEA cases LLAVEC
+    '''
+    t[0] = Switch(t[3],t[6],None,t.lineno(5), find_column(input, t.slice[5]))
+def p_switch_instr2(t):
+    '''
+    switch_instr : RSWITCH PARA expresion PARC LLAVEA cases default LLAVEC
+    '''
+    t[0] = Switch(t[3], t[6], t[7], t.lineno(5), find_column(input, t.slice[5]))
+def p_switch_instr3(t):
+    '''
+    switch_instr : RSWITCH PARA expresion PARC LLAVEA default LLAVEC
+    '''
+    t[0] = Switch(t[3], None, t[6], t.lineno(5), find_column(input, t.slice[5]))
+def p_switch_cases(t):
+    '''
+    cases : cases case
+    '''
+    if t[2] != "":
+        t[1].append(t[2])
+    t[0] = t[1]
+def p_switch_cases2(t):
+    '''
+    cases : case
+    '''
+    t[0] = [t[1]]
+def p_switch_case(t):
+    '''
+    case : RCASE expresion DOSPUNTOS instrucciones
+    '''
+    t[0] = Case(t[2],t[4],t.lineno(3), find_column(input, t.slice[3]))
+def p_switch_default(t):
+    '''
+    default : RDEFAULT DOSPUNTOS instrucciones
+    '''
+    t[0] = Case(t[1],t[3],t.lineno(2), find_column(input, t.slice[2]))
+    
 #///////////////////////////////////////MAIN//////////////////////////////////////////////////
 
 def p_main(t) :
@@ -379,17 +447,25 @@ def p_tipo(t) :
                 | RSTRING
                 | RVAR
                 | RBOOLEAN '''
-    if t[1] == 'int':
+    if t[1].lower() == 'int':
         t[0] = TIPO.ENTERO
-    elif t[1] == 'double':
+    elif t[1].lower() == 'double':
         t[0] = TIPO.DECIMAL
-    elif t[1] == 'char':
+    elif t[1].lower() == 'char':
         t[0] = TIPO.CHARACTER
-    elif t[1] == 'string':
+    elif t[1].lower() == 'string':
         t[0] = TIPO.CADENA
-    elif t[1] == 'boolean':
+    elif t[1].lower() == 'boolean':
         t[0] = TIPO.BOOLEANO
-    elif t[1] == 'var':
+    elif t[1].lower() == 'var':
+        t[0] = TIPO.VAR
+        
+def p_tipo_for(t) :
+    '''tipo_for  : RINT
+                | RVAR '''
+    if t[1].lower() == 'int':
+        t[0] = TIPO.ENTERO
+    elif t[1].lower() == 'var':
         t[0] = TIPO.VAR
 
 # ///////////////////////////////////////EXPRESION//////////////////////////////////////////////////
@@ -548,7 +624,7 @@ def analizar(texto):
     entrada = texto
     contador = 0
     # ARBOL AST
-    instrucciones = parse(entrada.lower())
+    instrucciones = parse(entrada)
     ast = Arbol(instrucciones)
     TSGlobal = TablaSimbolos()
     ast.setTSglobal(TSGlobal)
