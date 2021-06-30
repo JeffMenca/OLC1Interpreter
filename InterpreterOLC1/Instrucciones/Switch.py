@@ -1,5 +1,6 @@
 from Abstract.Instruccion import Instruccion
-from TS.Excepcion         import Excepcion
+from TS.Excepcion import Excepcion
+from Abstract.NodoAST import NodoAST
 
 class Switch(Instruccion):
     def __init__(self, expresion, cases,default, fila, columna):
@@ -27,9 +28,9 @@ class Switch(Instruccion):
                     #Analiza si el case tiene break
                     if (result): 
                         break
-                    else:
-                        if self.default != None:
-                            self.default.interpretar(tree,table)
+            if not(result) and (self.default != None):
+                self.default.interpretar(tree,table)
+                
             
 
     def instruccionesInterpreter(self, instruccion, tree, table):
@@ -43,3 +44,11 @@ class Switch(Instruccion):
             if isinstance(value, Excepcion) :
                 tree.getExcepciones().append(value)
                 tree.updateConsola(value.toString())
+    
+    def getNodo(self):
+        nodo = NodoAST("Switch")
+        instrucciones = NodoAST("INSTRUCCIONES")
+        for instr in self.cases:
+            instrucciones.agregarHijoNodo(instr.getNodo())
+        nodo.agregarHijoNodo(instrucciones)
+        return nodo

@@ -2,6 +2,8 @@ from Abstract.Instruccion import Instruccion
 from Instrucciones.Break import Break
 from TS.Excepcion         import Excepcion
 from TS.TablaSimbolos     import TablaSimbolos
+from Abstract.NodoAST import NodoAST
+from Instrucciones.Continue import Continue
 
 class Case(Instruccion):
     def __init__(self, expresion, instrucciones, fila, columna):
@@ -20,8 +22,15 @@ class Case(Instruccion):
                 tree.getExcepciones().append(result)
                 tree.updateConsola(result.toString())
             if isinstance(result, Break): return True
+            if isinstance(result, Continue): return True
 
-
+    def getNodo(self):
+        nodo = NodoAST("CASE")
+        instrucciones = NodoAST("INSTRUCCIONES")
+        for instr in self.instrucciones:
+            instrucciones.agregarHijoNodo(instr.getNodo())
+        nodo.agregarHijoNodo(instrucciones)
+        return nodo
 
 
 

@@ -2,6 +2,7 @@ from TS.Tipo import TIPO
 from TS.Excepcion import Excepcion
 from Abstract.Instruccion import Instruccion
 from TS.Simbolo import Simbolo
+from Abstract.NodoAST import NodoAST
 
 
 class Declaracion(Instruccion):
@@ -17,7 +18,7 @@ class Declaracion(Instruccion):
             value = self.expresion.interpretar(tree, table) # Valor a asignar a la variable
             if isinstance(value, Excepcion): return value
 
-            if self.tipo != self.expresion.tipo and self.tipo!=TIPO.VAR and self.expresion.tipo!=TIPO.NULO and (self.tipo!=TIPO.DECIMAL  and  self.expresion.tipo!=TIPO.ENTERO):
+            if self.tipo != self.expresion.tipo and self.tipo!=TIPO.VAR and self.expresion.tipo!=TIPO.NULO and (self.tipo!=TIPO.DECIMAL  or  self.expresion.tipo!=TIPO.ENTERO):
                 return Excepcion("Semantico", "Tipo de dato diferente en Declaracion", self.fila, self.columna)
             if self.tipo==TIPO.VAR:
                 self.tipo=self.expresion.tipo
@@ -33,6 +34,13 @@ class Declaracion(Instruccion):
 
             if isinstance(result, Excepcion): return result
             return None
+        
+    def getNodo(self):
+        nodo = NodoAST("DECLARACION")
+        nodo.agregarHijo(str(self.identificador))
+        if self.expresion!=None and self.expresion!='++' and self.expresion!='--':
+            nodo.agregarHijoNodo(self.expresion.getNodo())
+        return nodo
             
        
 

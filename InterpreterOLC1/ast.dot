@@ -1,0 +1,17 @@
+digraph {
+n0[label="RAIZ"];
+n1[label="INSTRUCCIONES"];
+n0->n1;
+n2[label="MAIN"];
+n1->n2;
+n3[label="INSTRUCCIONES"];
+n2->n3;
+n4[label="DECLARACION"];
+n3->n4;
+n5[label="a"];
+n4->n5;
+n6[label="PRIMITIVO"];
+n4->n6;
+n7[label="5"];
+n6->n7;
+}

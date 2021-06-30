@@ -5,6 +5,8 @@ Proyecto de Organizacion de lenguajes y compiladores 1
 JPR Interpreter
 '''
 import re
+import os
+from Abstract.NodoAST import NodoAST
 from tkinter.constants import CHAR
 from TS.Tipo import OperadorAritmetico, TIPO
 from TS.Excepcion import Excepcion
@@ -21,6 +23,8 @@ import ply.lex as lex
 
 # Palabras reservadas
 errores = []
+variables=[]
+funciones=[]
 reservadas = {
     'int': 'RINT',
     'double': 'RDOUBLE',
@@ -40,12 +44,6 @@ reservadas = {
     'return': 'RRETURN',
     'func': 'RFUNC',
     'read': 'RREAD',
-    'tolower': 'RTOLOWER',
-    'toupper': 'RTOUPPER',
-    'length': 'RLENGTH',
-    'truncate': 'RTRUNCATE',
-    'round': 'RROUND',
-    'typeof': 'RTYPEOF',
     'main': 'RMAIN',
     'var': 'RVAR',
     'null': 'RNULL',
@@ -54,6 +52,7 @@ reservadas = {
 # Tokens
 tokens = [
     'PUNTOCOMA',
+    'COMA',
     'DOSPUNTOS',
     'PARA',
     'PARC',
@@ -87,6 +86,7 @@ tokens = [
 
 # Asignacion de valor de tokens
 t_PUNTOCOMA = r';'
+t_COMA = r','
 t_DOSPUNTOS = r':'
 t_PARA = r'\('
 t_PARC = r'\)'
@@ -104,7 +104,7 @@ t_MENORQUE = r'<'
 t_MAYORQUE = r'>'
 t_IGUALIGUAL = r'=='
 t_IGUAL= r'='
-t_DIFERENTE = r'!='
+t_DIFERENTE = r'=!'
 t_MENORIGUAL = r'<='
 t_MAYORIGUAL = r'>='
 t_AND = r'&&'
@@ -137,8 +137,13 @@ def t_BOOLEANO(t):
 
 # Caracter (Char)
 def t_CHARACTER(t):
-    r'(\'.?\')'
-    t.value = t.value[1:-1]  # remuevo las comillas
+    r'\'(\\\'|\\"|\\t|\\n|\\\\|[^\'\\])?\''
+    t.value = t.value[1:-1] 
+    t.value = t.value.replace('\\t','\t')
+    t.value = t.value.replace('\\n','\n')
+    t.value = t.value.replace('\\"','\"')
+    t.value = t.value.replace("\\'","\'")
+    t.value = t.value.replace('\\\\','\\') 
     return t
 
 # Entero
@@ -159,12 +164,13 @@ def t_ID(t):
 
 # Cadena
 def t_CADENA(t):
-    r'(\".*?\")'
-    t.value = t.value[1:-1]  # remuevo las comillas
-    t.value=t.value.replace('\\t','\t')
-    t.value=t.value.replace('\\n','\n')
-    t.value=t.value.replace("\\'","\'")
-    t.value=t.value.replace('\\\\','\\')
+    r'\"(\\"|.)*?\"'
+    t.value = t.value[1:-1] 
+    t.value = t.value.replace('\\t','\t')
+    t.value = t.value.replace('\\n','\n')
+    t.value = t.value.replace('\\"','\"')
+    t.value = t.value.replace("\\'","\'")
+    t.value = t.value.replace('\\\\','\\')
     return t
 
 
@@ -187,6 +193,13 @@ def t_newline(t):
     t.lexer.lineno += t.value.count("\n")
 
 
+def p_error(t):
+    try:
+        errores.append(Excepcion("Lexico", "Error léxico." +
+                    t.value[0], t.lexer.lineno, find_column(input, t)))
+    except:
+        errores.append(Excepcion("Lexico", "Error léxico." , 0, 0))
+        
 def t_error(t):
     errores.append(Excepcion("Lexico", "Error léxico." +
                    t.value[0], t.lexer.lineno, find_column(input, t)))
@@ -215,6 +228,7 @@ precedence = (
     ('left', 'POR', 'DIV', 'MOD'),
     ('nonassoc', 'POT'),
     ('right', 'UMENOS'),
+    ('left', 'INCREMENTO','DECREMENTO'),
 )
 
 
@@ -234,12 +248,22 @@ from Instrucciones.Asignacion import Asignacion
 from Instrucciones.If import If 
 from Instrucciones.While import While
 from Instrucciones.Break import Break
+from Instrucciones.Continue import Continue
 from Instrucciones.For import For
 from Instrucciones.Switch import Switch
 from Instrucciones.Case import Case
 from Instrucciones.Main import Main
+from Instrucciones.Return import Return
 from Instrucciones.Funcion import Funcion
 from Instrucciones.Llamada import Llamada
+from Nativas.ToLower import ToLower
+from Nativas.ToUpper import ToUpper
+from Nativas.Length import Length
+from Nativas.Truncate import Truncate
+from Nativas.Round import Round
+from Nativas.TypeOf import TypeOf
+from Expresiones.Read import Read
+from Expresiones.Casteo import Casteo
 
 
 # ///////////////////////////////////////GRAMATICA//////////////////////////////////////////////////
@@ -271,16 +295,18 @@ def p_instruccion(t) :
     '''instruccion      : imprimir_instr finins
                         | declaracion_instr finins
                         | declaracion2_instr finins
-                        | asignacion_instr finins
-                        | asignacion2_instr finins
                         | if_instr
                         | switch_instr
                         | for_instr
                         | while_instr
                         | break_instr finins
+                        | continue_instr finins
                         | main_instr
                         | funcion_instr
-                        | llamada_instr finins'''
+                        | llamada_instr finins
+                        | return_instr finins
+                        | asignacion_instr finins
+                        | asignacion2_instr finins'''
     t[0] = t[1]
 
 def p_finins(t) :
@@ -289,7 +315,10 @@ def p_finins(t) :
     t[0] = None
 
 def p_instruccion_error(t):
-    'instruccion        : error PUNTOCOMA'
+    '''
+    instruccion        : error PUNTOCOMA
+    | error
+    '''
     errores.append(Excepcion("Sintáctico","Error Sintáctico." + str(t[1].value) , t.lineno(1), find_column(input, t.slice[1])))
     t[0] = ""
     
@@ -304,6 +333,12 @@ def p_while(t) :
 def p_break(t) :
     'break_instr     : RBREAK'
     t[0] = Break(t.lineno(1), find_column(input, t.slice[1]))
+    
+#///////////////////////////////////////CONTINUE//////////////////////////////////////////////////
+
+def p_continue(t) :
+    'continue_instr     : RCONTINUE'
+    t[0] = Continue(t.lineno(1), find_column(input, t.slice[1]))
     
 # ///////////////////////////////////////IMPRIMIR//////////////////////////////////////////////////
 
@@ -340,9 +375,10 @@ def p_asignacion(t) :
     
 def p_asignacion2(t) :
     '''
-    asignacion2_instr     : ID expresion
+    asignacion2_instr     : ID INCREMENTO
+    | ID DECREMENTO
     '''
-    t[0] = Asignacion(t[1], t[2], t.lineno(1), find_column(input, t.slice[1]))
+    t[0] = Asignacion(t[1], str(t[2]), t.lineno(1), find_column(input, t.slice[1]))
 
 #///////////////////////////////////////IF//////////////////////////////////////////////////
 
@@ -423,20 +459,68 @@ def p_switch_default(t):
 #///////////////////////////////////////MAIN//////////////////////////////////////////////////
 
 def p_main(t) :
-    'main_instr     : RMAIN PARA PARC LLAVEA instrucciones LLAVEC'
+    '''
+    main_instr     : RMAIN PARA PARC LLAVEA instrucciones LLAVEC
+    '''
     t[0] = Main(t[5], t.lineno(1), find_column(input, t.slice[1]))
 
 #///////////////////////////////////////FUNCION//////////////////////////////////////////////////
 
-def p_funcion(t) :
+def p_funcion_1(t) :
+    'funcion_instr     : RFUNC ID PARA parametros PARC LLAVEA instrucciones LLAVEC'
+    t[0] = Funcion(t[2], t[4], t[7], t.lineno(1), find_column(input, t.slice[1]))
+
+def p_funcion_2(t) :
     'funcion_instr     : RFUNC ID PARA PARC LLAVEA instrucciones LLAVEC'
-    t[0] = Funcion(t[2], t[6], t.lineno(1), find_column(input, t.slice[1]))
+    t[0] = Funcion(t[2], [], t[6], t.lineno(1), find_column(input, t.slice[1]))
+
+#///////////////////////////////////////PARAMETROS//////////////////////////////////////////////////
+
+def p_parametros_1(t) :
+    'parametros     : parametros COMA parametro'
+    t[1].append(t[3])
+    t[0] = t[1]
+    
+def p_parametros_2(t) :
+    'parametros    : parametro'
+    t[0] = [t[1]]
+
+#///////////////////////////////////////PARAMETRO//////////////////////////////////////////////////
+
+def p_parametro(t) :
+    'parametro     : tipo ID'
+    t[0] = {'tipo':t[1],'identificador':t[2]}
 
 #///////////////////////////////////////LLAMADA A FUNCION//////////////////////////////////////////////////
 
-def p_llamada(t) :
+def p_return(t) :
+    'return_instr     : RRETURN expresion'
+    t[0] = Return(t[2], t.lineno(1), find_column(input, t.slice[1]))
+    
+def p_llamada1(t) :
     'llamada_instr     : ID PARA PARC'
-    t[0] = Llamada(t[1], t.lineno(1), find_column(input, t.slice[1]))
+    t[0] = Llamada(t[1], [], t.lineno(1), find_column(input, t.slice[1]))
+
+def p_llamada2(t) :
+    'llamada_instr     : ID PARA parametros_llamada PARC'
+    t[0] = Llamada(t[1], t[3], t.lineno(1), find_column(input, t.slice[1]))
+
+#///////////////////////////////////////PARAMETROS LLAMADA A FUNCION//////////////////////////////////////////////////
+
+def p_parametrosLL_1(t) :
+    'parametros_llamada     : parametros_llamada COMA parametro_llamada'
+    t[1].append(t[3])
+    t[0] = t[1]
+    
+def p_parametrosLL_2(t) :
+    'parametros_llamada    : parametro_llamada'
+    t[0] = [t[1]]
+
+#///////////////////////////////////////PARAMETRO LLAMADA A FUNCION//////////////////////////////////////////////////
+
+def p_parametroLL(t) :
+    'parametro_llamada     : expresion'
+    t[0] = t[1]
 
 #///////////////////////////////////////TIPO//////////////////////////////////////////////////
 
@@ -487,8 +571,6 @@ def p_expresion_binaria(t):
             | expresion IGUALIGUAL expresion
             | expresion AND expresion
             | expresion OR expresion
-            | expresion INCREMENTO
-            | expresion DECREMENTO
     '''
     if t[2] == '+':
         t[0] = Aritmetica(OperadorAritmetico.MAS, t[1], t[3],
@@ -520,7 +602,7 @@ def p_expresion_binaria(t):
     elif t[2] == '>=':
         t[0] = Relacional(OperadorRelacional.MAYORIGUAL, t[1],
                           t[3], t.lineno(2), find_column(input, t.slice[2]))
-    elif t[2] == '!=':
+    elif t[2] == '=!':
         t[0] = Relacional(OperadorRelacional.DIFERENTE, t[1],
                           t[3], t.lineno(2), find_column(input, t.slice[2]))
     elif t[2] == '==':
@@ -557,6 +639,11 @@ def p_expresion_agrupacion(t):
     '''
     t[0] = t[2]
     
+# Expresion llamada
+def p_expresion_llamada(t):
+    '''expresion : llamada_instr'''
+    t[0] = t[1]
+ 
  # Expresiones y primitivos   
 def p_expresion_identificador(t):
     '''expresion : ID'''
@@ -590,13 +677,15 @@ def p_primitivo_null(t):
     '''expresion : RNULL'''
     t[0] = Primitivos(TIPO.NULO,None, t.lineno(1), find_column(input, t.slice[1]))
     
-def p_primitivo_incremento(t):
-    '''expresion : INCREMENTO'''
-    t[0] = Primitivos(TIPO.INCREMENTO,"++", t.lineno(1), find_column(input, t.slice[1]))
+def p_expresion_read(t):
+    '''expresion : RREAD PARA PARC'''
+    t[0] = Read(t.lineno(1), find_column(input, t.slice[1]))
+
+def p_expresion_cast(t):
+    '''expresion : PARA tipo PARC expresion'''
+    t[0] = Casteo(t[2], t[4], t.lineno(1), find_column(input, t.slice[1]))
     
-def p_primitivo_decremento(t):
-    '''expresion : DECREMENTO'''
-    t[0] = Primitivos(TIPO.DECREMENTO,"--", t.lineno(1), find_column(input, t.slice[1]))
+
 
 # Se parsea
 parser = yacc.yacc()
@@ -606,18 +695,66 @@ input = ''
 def getErrores():
     return errores
 
+def getVariables():
+    return variables
+
+def getFunciones():
+    return funciones
+
 
 def parse(inp):
     global errores
+    global variables
+    global funciones
     global lexer
     global parser
     errores = []
+    variables=[]
+    funciones=[]
     lexer = lex.lex(reflags= re.IGNORECASE)
     parser = yacc.yacc()
     global input
     input = inp
     return parser.parse(inp)
 
+
+def crearNativas(ast):          # CREACION Y DECLARACION DE LAS FUNCIONES NATIVAS
+    nombre = "toupper"
+    parametros = [{'tipo':TIPO.CADENA,'identificador':'toUpper##Param1'}]
+    instrucciones = []
+    toUpper = ToUpper(nombre, parametros, instrucciones, -1, -1)
+    ast.addFuncion(toUpper)     # GUARDAR LA FUNCION EN "MEMORIA" (EN EL ARBOL)
+
+    nombre = "tolower"
+    parametros = [{'tipo':TIPO.CADENA,'identificador':'toLower##Param1'}]
+    instrucciones = []
+    toLower = ToLower(nombre, parametros, instrucciones, -1, -1)
+    ast.addFuncion(toLower)     # GUARDAR LA FUNCION EN "MEMORIA" (EN EL ARBOL)
+    
+    nombre = "length"
+    parametros = [{'tipo':TIPO.CADENA,'identificador':'length##Param1'}]
+    instrucciones = []
+    length = Length(nombre, parametros, instrucciones, -1, -1)
+    ast.addFuncion(length)     # GUARDAR LA FUNCION EN "MEMORIA" (EN EL ARBOL)
+        
+    nombre = "truncate"
+    parametros = [{'tipo':TIPO.DECIMAL,'identificador':'truncate##Param1'}]
+    instrucciones = []
+    truncate = Truncate(nombre, parametros, instrucciones, -1, -1)
+    ast.addFuncion(truncate)     # GUARDAR LA FUNCION EN "MEMORIA" (EN EL ARBOL)
+    
+    nombre = "round"
+    parametros = [{'tipo':TIPO.DECIMAL,'identificador':'round##Param1'}]
+    instrucciones = []
+    roundNumber = Round(nombre, parametros, instrucciones, -1, -1)
+    ast.addFuncion(roundNumber)     # GUARDAR LA FUNCION EN "MEMORIA" (EN EL ARBOL)
+    
+    nombre = "typeof"
+    parametros = [{'tipo':TIPO.CADENA,'identificador':'typeof##Param1'}]
+    instrucciones = []
+    typeof = TypeOf(nombre, parametros, instrucciones, -1, -1)
+    ast.addFuncion(typeof)     # GUARDAR LA FUNCION EN "MEMORIA" (EN EL ARBOL)
+    
 
 # Metodo que conecta con el frontend (INTERFAZ)
 def analizar(texto):
@@ -628,6 +765,9 @@ def analizar(texto):
     ast = Arbol(instrucciones)
     TSGlobal = TablaSimbolos()
     ast.setTSglobal(TSGlobal)
+    if len(TSGlobal.getVariables())!=0:
+        TSGlobal.vaciarVariables()
+    crearNativas(ast)
     for error in errores:
         # Metodo para capturar errores
         ast.getExcepciones().append(error)
@@ -640,13 +780,24 @@ def analizar(texto):
                 ast.addFuncion(instruccion)  
             if isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion):
                 value = instruccion.interpretar(ast,TSGlobal)
-                if isinstance(value, Excepcion) :
-                    ast.getExcepciones().append(value)
-                    ast.updateConsola(value.toString())
-                if isinstance(value, Break): 
-                    err = Excepcion("Semantico", "Sentencia BREAK fuera de ciclo", instruccion.fila, instruccion.columna)
-                    ast.getExcepciones().append(err)
-                    ast.updateConsola(err.toString())
+                if value !=None:
+                    if isinstance(value, Excepcion) :
+                            ast.getExcepciones().append(value)
+                            ast.updateConsola(value.toString())
+                            errores.append(value)
+                    elif isinstance(value, Break): 
+                            err = Excepcion("Semantico", "Sentencia BREAK fuera de ciclo", instruccion.fila, instruccion.columna)
+                            ast.getExcepciones().append(err)
+                            errores.append(err)
+                            ast.updateConsola(err.toString())
+                    elif isinstance(value, Continue): 
+                            err = Excepcion("Semantico", "Sentencia CONTINUE fuera de ciclo", instruccion.fila, instruccion.columna)
+                            ast.getExcepciones().append(err)
+                            errores.append(err)
+                            ast.updateConsola(err.toString())
+                    else:
+                        for error in value:
+                            errores.append(error)
         # Toma el Main
         for instruccion in ast.getInstrucciones():      
             if isinstance(instruccion, Main):
@@ -656,20 +807,55 @@ def analizar(texto):
                     err = Excepcion("Semantico", "Existen 2 funciones Main", instruccion.fila, instruccion.columna)
                     ast.getExcepciones().append(err)
                     ast.updateConsola(err.toString())
+                    errores.append(err)
                     break
                 value = instruccion.interpretar(ast,TSGlobal)
-                if isinstance(value, Excepcion) :
-                    ast.getExcepciones().append(value)
-                    ast.updateConsola(value.toString())
-                if isinstance(value, Break): 
-                    err = Excepcion("Semantico", "Sentencia BREAK fuera de ciclo", instruccion.fila, instruccion.columna)
-                    ast.getExcepciones().append(err)
-                    ast.updateConsola(err.toString())
+                if value !=None:
+                    if isinstance(value, Excepcion) :
+                        ast.getExcepciones().append(value)
+                        ast.updateConsola(value.toString())
+                        errores.append(value)
+                    elif isinstance(value, Break): 
+                        err = Excepcion("Semantico", "Sentencia BREAK fuera de ciclo", instruccion.fila, instruccion.columna)
+                        ast.getExcepciones().append(err)
+                        errores.append(err)
+                        ast.updateConsola(err.toString())
+                    elif isinstance(value, Return): 
+                        err = Excepcion("Semantico", "Sentencia RETURN fuera de ciclo", instruccion.fila, instruccion.columna)
+                        ast.getExcepciones().append(err)
+                        errores.append(err)
+                        ast.updateConsola(err.toString())
+                    elif isinstance(value, Continue): 
+                        err = Excepcion("Semantico", "Sentencia CONTINUE fuera de ciclo", instruccion.fila, instruccion.columna)
+                        ast.getExcepciones().append(err)
+                        errores.append(err)
+                        ast.updateConsola(err.toString())
+                    else:
+                        for error in value:
+                            errores.append(error)
         # Toma todo lo que esta fuera del main
         for instruccion in ast.getInstrucciones():    
             if not (isinstance(instruccion, Main) or isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion) or isinstance(instruccion, Funcion)):
                 err = Excepcion("Semantico", "Sentencias fuera de Main", instruccion.fila, instruccion.columna)
                 ast.getExcepciones().append(err)
                 ast.updateConsola(err.toString())
-        
+                errores.append(err)
+    
+        init = NodoAST("RAIZ")
+        instr = NodoAST("INSTRUCCIONES")
+        for instruccion in ast.getInstrucciones():
+            instr.agregarHijoNodo(instruccion.getNodo())
+        init.agregarHijoNodo(instr)
+        grafo = ast.getDot(init) #DEVUELVE EL CODIGO GRAPHVIZ DEL AST
+        dirname = os.path.dirname(__file__)
+        direcc = os.path.join(dirname, 'ast.dot')
+        arch = open(direcc, "w+")
+        arch.write(grafo)
+        arch.close()
+        os.system('dot -T pdf -o ast.pdf ast.dot')
+        for variable in TSGlobal.getVariables():
+            variables.append(variable)
+        for funcion in ast.getFunciones():
+            funciones.append(funcion)
+             
     return ast.getConsola()

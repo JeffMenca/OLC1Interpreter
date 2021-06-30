@@ -1,6 +1,7 @@
 from Abstract.Instruccion import Instruccion
 from TS.Excepcion import Excepcion
 from TS.Tipo import TIPO, OperadorRelacional
+from Abstract.NodoAST import NodoAST
 
 class Relacional(Instruccion):
     def __init__(self, operador, OperacionIzq, OperacionDer, fila, columna):
@@ -76,7 +77,6 @@ class Relacional(Instruccion):
                     return self.obtenerVal(self.OperacionIzq.tipo, izq) == self.obtenerVal(self.OperacionDer.tipo, der)
                 elif self.OperacionIzq.tipo == TIPO.ENTERO and self.OperacionDer.tipo == TIPO.DECIMAL:
                     return self.obtenerVal(self.OperacionIzq.tipo, izq) == self.obtenerVal(self.OperacionDer.tipo, der)
-                
                 elif self.OperacionIzq.tipo == TIPO.BOOLEANO and self.OperacionDer.tipo == TIPO.NULO:
                     return self.obtenerVal(self.OperacionIzq.tipo, izq) == self.obtenerVal(self.OperacionDer.tipo, der)
                 elif self.OperacionIzq.tipo == TIPO.DECIMAL and self.OperacionDer.tipo == TIPO.NULO:
@@ -99,7 +99,6 @@ class Relacional(Instruccion):
                     return self.obtenerVal(self.OperacionIzq.tipo, izq) == self.obtenerVal(self.OperacionDer.tipo, der)
                 elif self.OperacionIzq.tipo == TIPO.NULO and self.OperacionDer.tipo == TIPO.DECIMAL:
                     return self.obtenerVal(self.OperacionIzq.tipo, izq) == self.obtenerVal(self.OperacionDer.tipo, der)
-
                 elif self.OperacionIzq.tipo == TIPO.DECIMAL and self.OperacionDer.tipo == TIPO.ENTERO:
                     return self.obtenerVal(self.OperacionIzq.tipo, izq) == self.obtenerVal(self.OperacionDer.tipo, der)
                 elif self.OperacionIzq.tipo == TIPO.DECIMAL and self.OperacionDer.tipo == TIPO.DECIMAL:
@@ -159,7 +158,13 @@ class Relacional(Instruccion):
              return Excepcion("Semantico", "Tipo de Operacion no Especificado.", self.fila, self.columna)
         return Excepcion("Semantico", "Tipo de Operacion no Especificado.", self.fila, self.columna)
     
-        
+    
+    def getNodo(self):
+        nodo = NodoAST("RELACIONAL")
+        nodo.agregarHijoNodo(self.OperacionIzq.getNodo())
+        nodo.agregarHijo(str(self.operador))
+        nodo.agregarHijoNodo(self.OperacionDer.getNodo())
+        return nodo 
 
     def obtenerVal(self, tipo, val):
         if val != None:
