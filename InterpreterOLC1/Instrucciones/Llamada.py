@@ -12,6 +12,7 @@ class Llamada(Instruccion):
         self.parametros = parametros
         self.fila = fila
         self.columna = columna
+        self.arreglo = False
     
     def interpretar(self, tree, table):
         result = tree.getFuncion(self.nombre.lower()) ## OBTENER LA FUNCION
@@ -31,10 +32,18 @@ class Llamada(Instruccion):
                     result.parametros[contador]['tipo']=expresion.tipo
                 if result.parametros[contador]['identificador']=='typeof##Param1':
                     result.parametros[contador]['tipo']=expresion.tipo
+                   
+                try:
+                    simboloEncontrado = table.getTabla(expresion.identificador)
+                    if(simboloEncontrado.getArreglo() and (result.parametros[contador]['identificador']=='length##Param1' or result.parametros[contador]['identificador']=='typeof##Param1')):
+                        result.parametros[contador]['tipo'] = expresion.tipo
+                        self.arreglo=True
+                except:
+                    pass
 
                 if result.parametros[contador]["tipo"] == expresion.tipo:  # VERIFICACION DE TIPO
                     # CREACION DE SIMBOLO E INGRESARLO A LA TABLA DE SIMBOLOS
-                    simbolo = Simbolo(str(result.parametros[contador]['identificador']).lower(), result.parametros[contador]['tipo'], self.fila, self.columna, resultExpresion)
+                    simbolo = Simbolo(str(result.parametros[contador]['identificador']).lower(), result.parametros[contador]['tipo'],self.arreglo, self.fila, self.columna, resultExpresion)
                     resultTabla = nuevaTabla.setTabla(simbolo)
                     if isinstance(resultTabla, Excepcion): return resultTabla
                 else:

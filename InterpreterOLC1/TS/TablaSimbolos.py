@@ -2,6 +2,7 @@ from TS.Tipo import TIPO
 from TS.Excepcion import Excepcion
 
 variables=[]
+entorno=""
 
 class TablaSimbolos:
     def __init__(self, anterior = None):
@@ -11,6 +12,7 @@ class TablaSimbolos:
 
     def setTabla(self, simbolo):      # Agregar una variable
         global variables
+        global entorno
         if simbolo.id.lower() in self.tabla :
             return Excepcion("Semantico", "Variable " + simbolo.id + " ya existe", simbolo.fila, simbolo.columna)
         else:
@@ -18,14 +20,16 @@ class TablaSimbolos:
             encontro=True
             if len(variables)>0:
                 for variable in variables:
-                    if variable.id==simbolo.id:
+                    if variable.id==simbolo.id and variable.entorno==entorno and variable.fila==simbolo.fila and variable.columna==simbolo.columna:
                         encontro=True
                         break
                     else:
                         encontro=False
                 if encontro==False:
+                    simbolo.entorno=entorno
                     variables.append(simbolo)
             else:
+                simbolo.entorno=entorno
                 variables.append(simbolo)
         return None  
 
@@ -64,7 +68,7 @@ class TablaSimbolos:
                             return Excepcion("Semantico", "Tipo de dato Diferente en Asignacion", simbolo.getFila(), simbolo.getColumna())
                     tablaActual.tabla[simbolo.id.lower()].setValor(simbolo.getValor())
                     for variable in variables:
-                        if variable.id==simbolo.id:
+                        if variable.id==simbolo.id and variable.entorno==entorno and variable.fila==simbolo.fila and variable.columna==simbolo.columna:
                             variable.setValor(simbolo.getValor())
                             variable.setTipo(tablaActual.tabla[simbolo.id.lower()].getTipo())
                             break    
@@ -79,3 +83,6 @@ class TablaSimbolos:
     def vaciarVariables(self):
         global variables
         variables=[]
+    def setEntorno(self, ambito):
+        global entorno
+        entorno= ambito

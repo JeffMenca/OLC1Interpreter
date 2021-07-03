@@ -12,6 +12,7 @@ class Declaracion(Instruccion):
         self.expresion = expresion
         self.fila = fila
         self.columna = columna
+        self.arreglo = False
 
     def interpretar(self, tree, table):
         if(self.expresion!=None):
@@ -24,12 +25,12 @@ class Declaracion(Instruccion):
                 self.tipo=self.expresion.tipo
             if self.tipo==TIPO.DECIMAL and self.expresion.tipo==TIPO.ENTERO:
                 value=float(value)
-            simbolo = Simbolo(str(self.identificador), self.tipo, self.fila, self.columna, value)
+            simbolo = Simbolo(str(self.identificador), self.tipo,self.arreglo, self.fila, self.columna, value)
             result = table.setTabla(simbolo)
             if isinstance(result, Excepcion): return result
             return None
         else:
-            simbolo = Simbolo(str(self.identificador), self.tipo, self.fila, self.columna, None)
+            simbolo = Simbolo(str(self.identificador), self.tipo,self.arreglo, self.fila, self.columna, None)
             result = table.setTabla(simbolo)
 
             if isinstance(result, Excepcion): return result

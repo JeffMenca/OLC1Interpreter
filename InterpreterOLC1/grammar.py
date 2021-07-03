@@ -18,8 +18,10 @@ from TS.Tipo import OperadorAritmetico, OperadorLogico, TIPO, OperadorRelacional
 from Expresiones.Aritmetica import Aritmetica
 from Expresiones.Relacional import Relacional
 from Expresiones.Logica import Logica
+import sys
 import ply.yacc as yacc
 import ply.lex as lex
+sys.setrecursionlimit(3000)
 
 # Palabras reservadas
 errores = []
@@ -46,7 +48,9 @@ reservadas = {
     'read': 'RREAD',
     'main': 'RMAIN',
     'var': 'RVAR',
+    'new': 'RNEW',
     'null': 'RNULL',
+    
 }
 
 # Tokens
@@ -58,6 +62,8 @@ tokens = [
     'PARC',
     'LLAVEA',
     'LLAVEC',
+    'CORA',
+    'CORC',
     'MAS',
     'MENOS',
     'INCREMENTO',
@@ -92,6 +98,8 @@ t_PARA = r'\('
 t_PARC = r'\)'
 t_LLAVEA= r'{'
 t_LLAVEC= r'}'
+t_CORA= r'\['
+t_CORC= r'\]'
 t_MAS = r'\+'
 t_POR = r'\*'
 t_DIV = r'/'
@@ -264,6 +272,10 @@ from Nativas.Round import Round
 from Nativas.TypeOf import TypeOf
 from Expresiones.Read import Read
 from Expresiones.Casteo import Casteo
+from Instrucciones.DeclaracionArr1 import DeclaracionArr1
+from Instrucciones.DeclaracionArrReferencia import DeclaracionArrReferencia
+from Expresiones.AccesoArreglo import AccesoArreglo
+from Instrucciones.ModificarArreglo import ModificarArreglo
 
 
 # ///////////////////////////////////////GRAMATICA//////////////////////////////////////////////////
@@ -306,7 +318,9 @@ def p_instruccion(t) :
                         | llamada_instr finins
                         | return_instr finins
                         | asignacion_instr finins
-                        | asignacion2_instr finins'''
+                        | asignacion2_instr finins
+                        | declArr_instr finins
+                        | modArr_instr finins'''
     t[0] = t[1]
 
 def p_finins(t) :
@@ -521,6 +535,50 @@ def p_parametrosLL_2(t) :
 def p_parametroLL(t) :
     'parametro_llamada     : expresion'
     t[0] = t[1]
+    
+#///////////////////////////////////////DECLARACION ARREGLOS//////////////////////////////////////////////////
+
+def p_declArr(t) :
+    '''declArr_instr    : tipo1
+    | declArrReferencia
+    '''
+    t[0] = t[1]
+    
+def p_tipo1(t) :
+    '''tipo1     : tipo lista_Dim ID IGUAL RNEW tipo lista_expresiones
+    '''
+    t[0] = DeclaracionArr1(t[1], t[2], t[3], t[6], t[7], t.lineno(3), find_column(input, t.slice[3]))
+    
+def p_declArrReferencia(t) :
+    '''declArrReferencia : tipo lista_Dim ID IGUAL ID
+    '''
+    t[0] = DeclaracionArrReferencia(t[1], t[2], t[3], t[5], t.lineno(3), find_column(input, t.slice[3]))
+    
+def p_lista_Dim1(t) :
+    'lista_Dim     : lista_Dim CORA CORC'
+    t[0] = t[1] + 1
+
+def p_lista_Dim2(t) :
+    'lista_Dim    : CORA CORC'
+    t[0] = 1
+
+def p_lista_expresiones_1(t) :
+    'lista_expresiones     : lista_expresiones CORA expresion CORC'
+    t[1].append(t[3])
+    t[0] = t[1]
+
+def p_lista_expresiones_2(t) :
+    'lista_expresiones    : CORA expresion CORC'
+    t[0] = [t[2]]
+
+
+#///////////////////////////////////////MODIFICACION ARREGLOS//////////////////////////////////////////////////
+
+
+def p_modArr(t) :
+    '''modArr_instr     :  ID lista_expresiones IGUAL expresion'''
+    t[0] = ModificarArreglo(t[1], t[2], t[4], t.lineno(1), find_column(input, t.slice[1]))
+
 
 #///////////////////////////////////////TIPO//////////////////////////////////////////////////
 
@@ -685,6 +743,10 @@ def p_expresion_cast(t):
     '''expresion : PARA tipo PARC expresion'''
     t[0] = Casteo(t[2], t[4], t.lineno(1), find_column(input, t.slice[1]))
     
+def p_expresion_Arreglo(t):
+    '''expresion : ID lista_expresiones'''
+    t[0] = AccesoArreglo(t[1], t[2], t.lineno(1), find_column(input, t.slice[1]))
+    
 
 
 # Se parsea
@@ -774,11 +836,12 @@ def analizar(texto):
         ast.updateConsola(error.toString())
     if ast.getInstrucciones()!=None:
         # Toma declaraciones y asignaciones
-        for instruccion in ast.getInstrucciones():      
+        for instruccion in ast.getInstrucciones():   
+            TSGlobal.setEntorno("Global")   
             if isinstance(instruccion, Funcion):
                 # Guarda la funcion
                 ast.addFuncion(instruccion)  
-            if isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion):
+            if isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion) or isinstance(instruccion, DeclaracionArr1) or isinstance(instruccion, ModificarArreglo):
                 value = instruccion.interpretar(ast,TSGlobal)
                 if value !=None:
                     if isinstance(value, Excepcion) :
@@ -799,7 +862,8 @@ def analizar(texto):
                         for error in value:
                             errores.append(error)
         # Toma el Main
-        for instruccion in ast.getInstrucciones():      
+        for instruccion in ast.getInstrucciones():   
+            TSGlobal.setEntorno("Main")   
             if isinstance(instruccion, Main):
                 contador += 1
                 # Verifica solo 1 main
@@ -835,7 +899,7 @@ def analizar(texto):
                             errores.append(error)
         # Toma todo lo que esta fuera del main
         for instruccion in ast.getInstrucciones():    
-            if not (isinstance(instruccion, Main) or isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion) or isinstance(instruccion, Funcion)):
+            if not (isinstance(instruccion, Main) or isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion) or isinstance(instruccion, Funcion) or isinstance(instruccion, DeclaracionArr1)  or isinstance(instruccion, ModificarArreglo)):
                 err = Excepcion("Semantico", "Sentencias fuera de Main", instruccion.fila, instruccion.columna)
                 ast.getExcepciones().append(err)
                 ast.updateConsola(err.toString())

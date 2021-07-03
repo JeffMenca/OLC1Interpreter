@@ -220,12 +220,17 @@ def analizar():
     editor.delete(1.0, "end")
     for s in recorrerInput(contenido2):
         editor.insert(INSERT, s[1], s[0])
+           
     for variable in variables:
-        tv.insert(parent='', index=contador2, iid=contador2, text='', values=(contador2,variable.getID(),"Variable",variable.getTipo(),"Main",variable.getValor(),variable.getFila(),variable.getColumna()))
+        tv.insert(parent='', index=contador2, iid=contador2, text='', values=(contador2,variable.getID(),"Variable",variable.getTipo(),variable.getEntorno(),variable.getValor(),variable.getFila(),variable.getColumna()))
         contador2+=1
+        
     for funcion in funciones:
-        tv.insert(parent='', index=contador2, iid=contador2, text='', values=(contador2,funcion.getNombre(),"Funcion",funcion.getTipo(),"----","----",funcion.getFila(),funcion.getColumna()))
-        contador2+=1
+        if funcion.getNombre()=="round" or funcion.getNombre()=="toupper" or funcion.getNombre()=="tolower" or funcion.getNombre()=="length" or funcion.getNombre()=="truncate" or funcion.getNombre()=="typeof":
+            continue
+        else:
+            tv.insert(parent='', index=contador2, iid=contador2, text='', values=(contador2,funcion.getNombre(),"Funcion",funcion.getTipo(),"----","----",funcion.getFila(),funcion.getColumna()))
+            contador2+=1
     
     
 # Reportes
@@ -248,10 +253,38 @@ def reporteErrores():
     with open(archivo,'w') as f:
         f.write(salida) 
     os.system('dot -Tpng '+archivo+' -o reporteErrores.png')
-    os.startfile("reporteErrores.png")
-    
+    os.startfile("reporteErrores.png") 
 def reporteArbol():
     os.startfile("ast.pdf")
+    
+def reporteSimbolos():
+    archivo = "reporteSimbolos.dot"
+    salida = "digraph simbolos {\n"
+    salida += "tbl [\n shape = plaintext\n"
+    salida += "label=<\n"
+    salida += "<table border=\"1\" bgcolor=\"cadetblue2\">\n"
+    salida += "<tr> <td colspan='5'>Reporte de simbolos</td> </tr> \n"
+    salida += "<tr> <td>#</td> <td>ID</td> <td>Tipo</td> <td>Tipo2</td> <td>Entorno</td> <td>Valor</td> <td>Linea</td> <td>Columna</td> </tr> \n"
+    variables = listaVariables()
+    funciones=listaFunciones()
+    cont = 1
+    for variable in variables:
+        salida += "<tr> <td>"+str(cont)+"</td> <td>"+str(variable.getID())+"</td> <td>"+"Variable"+"</td> <td>"+str(variable.getTipo())+"</td> <td>"+str(variable.getEntorno())+"</td> <td>"+str(variable.getValor())+"</td> <td>"+str(variable.getFila())+"</td> <td>"+str(variable.getColumna())+"</td> </tr> \n"
+        cont += 1
+    for funcion in funciones:
+        if funcion.getNombre()=="round" or funcion.getNombre()=="toupper" or funcion.getNombre()=="tolower" or funcion.getNombre()=="length" or funcion.getNombre()=="truncate" or funcion.getNombre()=="typeof":
+            continue
+        else:
+            salida += "<tr> <td>"+str(cont)+"</td> <td>"+str(funcion.getNombre())+"</td> <td>"+"Funcion"+"</td> <td>"+str(funcion.getTipo())+"</td> <td>"+"---"+"</td> <td>"+"---"+"</td> <td>"+str(funcion.getFila())+"</td> <td>"+str(funcion.getColumna())+"</td> </tr> \n"
+            cont += 1
+    salida += "</table>\n"
+    salida += ">];\n"
+    salida += "}"
+    with open(archivo,'w') as f:
+        f.write(salida) 
+    os.system('dot -Tpng '+archivo+' -o reporteSimbolos.png')
+    os.startfile("reporteSimbolos.png") 
+
         
 # Declaracion del tk
 raiz = Tk()
@@ -301,7 +334,7 @@ new_item.add_command(label='Analizar')
 menu.add_cascade(label='Analizar', menu=new_item)
 # Reportes
 new_item = Menu(menu,tearoff=0)
-new_item.add_command(label='Simbolos')
+new_item.add_command(label='Simbolos',command=reporteSimbolos)
 new_item.add_command(label='Errores',command=reporteErrores)
 new_item.add_command(label='Arbol AST',command=reporteArbol)
 menu.add_cascade(label='Reportes', menu=new_item)
@@ -318,12 +351,12 @@ Label(ventana,text="Tabla de Errores",font="Helvetica 15",foreground='red2',back
 tv=ttk.Treeview(ventana,height=7)
 tv['columns']=('#', 'Identificador', 'Tipo','Tipo2', 'Entorno', 'Valor', 'Linea', 'Columna')
 tv.column('#0', width=0, stretch=NO)
-tv.column('#', anchor=CENTER, width=10)
+tv.column('#', anchor=CENTER, width=20)
 tv.column('Identificador', anchor=CENTER, width=90)
 tv.column('Tipo', anchor=CENTER, width=80)
 tv.column('Tipo2', anchor=CENTER, width=80)
 tv.column('Entorno', anchor=CENTER, width=60)
-tv.column('Valor', anchor=CENTER, width=90)
+tv.column('Valor', anchor=CENTER, width=80)
 tv.column('Linea', anchor=CENTER, width=60)
 tv.column('Columna', anchor=CENTER, width=70)
 tv.heading('#0', text='', anchor=CENTER)

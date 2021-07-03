@@ -1,0 +1,12 @@
+digraph simbolos {
+tbl [
+ shape = plaintext
+label=<
+<table border="1" bgcolor="cadetblue2">
+<tr> <td colspan='5'>Reporte de simbolos</td> </tr> 
+<tr> <td>#</td> <td>ID</td> <td>Tipo</td> <td>Tipo2</td> <td>Entorno</td> <td>Valor</td> <td>Linea</td> <td>Columna</td> </tr> 
+<tr> <td>1</td> <td>a</td> <td>Variable</td> <td>TIPO.ENTERO</td> <td>Main</td> <td>5</td> <td>2</td> <td>5</td> </tr> 
+<tr> <td>2</td> <td>hola</td> <td>Funcion</td> <td>TIPO.NULO</td> <td>---</td> <td>---</td> <td>5</td> <td>1</td> </tr> 
+</table>
+>];
+}

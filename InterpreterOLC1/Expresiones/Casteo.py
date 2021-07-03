@@ -49,7 +49,12 @@ class Casteo(Instruccion):
         if self.tipo == TIPO.BOOLEANO:
             try:
                 if self.expresion.tipo == TIPO.CADENA:
-                    return bool(self.obtenerVal(self.expresion.tipo, val))
+                    if val.lower()=="true":
+                        return True
+                    elif val.lower()=="false":
+                        return False
+                    else:
+                        return Excepcion("Semantico", "Tipo Erroneo de casteo para Booleano.", self.fila, self.columna)
             except:
                     return Excepcion("Semantico", "No se puede castear para Booleano.", self.fila, self.columna)   
             return Excepcion("Semantico", "Tipo Erroneo de casteo para Booleano.", self.fila, self.columna)

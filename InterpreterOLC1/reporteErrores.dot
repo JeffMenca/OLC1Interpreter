@@ -1,0 +1,10 @@
+digraph errores {
+tbl [
+ shape = plaintext
+label=<
+<table border="1" bgcolor="cadetblue2">
+<tr> <td colspan='5'>Reporte de errores</td> </tr> 
+<tr> <td>#</td> <td>Tipo</td> <td>Descripcion</td> <td>Linea</td> <td>Columna</td> </tr> 
+</table>
+>];
+}

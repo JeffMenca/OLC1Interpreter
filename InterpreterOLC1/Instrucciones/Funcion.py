@@ -19,6 +19,7 @@ class Funcion(Instruccion):
     def interpretar(self, tree, table):
         nuevaTabla = TablaSimbolos(table) 
         for instruccion in self.instrucciones:      # REALIZAR LAS ACCIONES
+            nuevaTabla.setEntorno("Funcion"+" "+self.nombre)
             value = instruccion.interpretar(tree,nuevaTabla)
             if isinstance(value, Excepcion) :
                 tree.getExcepciones().append(value)
