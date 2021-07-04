@@ -11,6 +11,7 @@ from TS.Excepcion         import Excepcion
 from TS.Tipo              import TIPO
 from TS.TablaSimbolos     import TablaSimbolos
 from Instrucciones.Continue import Continue
+from Instrucciones.Return import Return
 
 class For(Instruccion):
     def __init__(self, valorInicial, condicion, incremento_decremento, instrucciones,linea,columna):
@@ -57,6 +58,7 @@ class For(Instruccion):
                             tree.updateConsola(result.toString())
                         if isinstance(result, Break): return None
                         if isinstance(result, Continue): break
+                        if isinstance(result, Return): return result
                     
                     self.incremento_decremento.interpretar(tree,nuevaTabla)
                 else:

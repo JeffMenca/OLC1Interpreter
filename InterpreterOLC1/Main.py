@@ -8,6 +8,7 @@ JPR Interpreter
 #Imports
 import re
 import os
+import io
 from tkinter import *
 from tkinter import scrolledtext
 from tkinter import filedialog
@@ -168,7 +169,7 @@ def nuevo():
 def abrir():       
     global archivo
     archivo = filedialog.askopenfilename(title = "Abrir Archivo", initialdir = "C:/",filetypes=[("jpr files", ".jpr")])
-    entrada = open(archivo)
+    entrada = io.open(archivo, 'r',encoding="utf8")
     content = entrada.read()
     editor.delete(1.0, END)
     for s in recorrerInput(content):
@@ -204,7 +205,7 @@ def guardarComo():
  # Analizar
 def analizar():   
     console.delete(1.0, "end")
-    contenido=analizador(editor.get(1.0, END))
+    contenido=analizador(editor.get(1.0, END),console)
     console.insert(INSERT, contenido)
     errores=listaErrores()
     variables=listaVariables()

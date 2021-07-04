@@ -1,6 +1,8 @@
 from Abstract.Instruccion import Instruccion
 from TS.Excepcion import Excepcion
 from Abstract.NodoAST import NodoAST
+from Instrucciones.Return import Return
+from Instrucciones.Continue import Continue
 
 class Switch(Instruccion):
     def __init__(self, expresion, cases,default, fila, columna):
@@ -22,12 +24,15 @@ class Switch(Instruccion):
 
                 value2 = self.expresion.interpretar(tree,table)
                 if isinstance(value2,Excepcion): return 2
+                
 
                 if value2 == value:
                     result = case.interpretar(tree, table)
                     #Analiza si el case tiene break
                     if (result): 
                         break
+            if isinstance(result, Return): return result
+            if isinstance(result, Continue): return result
             if not(result) and (self.default != None):
                 self.default.interpretar(tree,table)
                 

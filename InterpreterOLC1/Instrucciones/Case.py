@@ -4,6 +4,7 @@ from TS.Excepcion         import Excepcion
 from TS.TablaSimbolos     import TablaSimbolos
 from Abstract.NodoAST import NodoAST
 from Instrucciones.Continue import Continue
+from Instrucciones.Return import Return
 
 class Case(Instruccion):
     def __init__(self, expresion, instrucciones, fila, columna):
@@ -23,7 +24,8 @@ class Case(Instruccion):
                 tree.getExcepciones().append(result)
                 tree.updateConsola(result.toString())
             if isinstance(result, Break): return True
-            if isinstance(result, Continue): return True
+            if isinstance(result, Continue): return result
+            if isinstance(result, Return): return result
 
     def getNodo(self):
         nodo = NodoAST("CASE")

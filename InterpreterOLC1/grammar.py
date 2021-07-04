@@ -6,6 +6,7 @@ JPR Interpreter
 '''
 import re
 import os
+import io
 from Abstract.NodoAST import NodoAST
 from tkinter.constants import CHAR
 from TS.Tipo import OperadorAritmetico, TIPO
@@ -134,9 +135,9 @@ def t_DECIMAL(t):
 def t_BOOLEANO(t):
     r'true|false'
     try:
-        if t.value=='true':
+        if t.value.lower()=='true':
             t.value=True
-        elif t.value=='false':
+        elif t.value.lower()=='false':
             t.value=False
     except ValueError:
         print("Value not boolean %d", t.value)
@@ -504,6 +505,10 @@ def p_parametros_2(t) :
 def p_parametro(t) :
     'parametro     : tipo ID'
     t[0] = {'tipo':t[1],'identificador':t[2]}
+    
+def p_parametro_arreglo(t) :
+    'parametro     : tipo lista_Dim ID'
+    t[0] = {'tipo':TIPO.ARREGLO,'identificador':t[3],'tipo dato':t[1],'longitud':t[2]}
 
 #///////////////////////////////////////LLAMADA A FUNCION//////////////////////////////////////////////////
 
@@ -819,12 +824,12 @@ def crearNativas(ast):          # CREACION Y DECLARACION DE LAS FUNCIONES NATIVA
     
 
 # Metodo que conecta con el frontend (INTERFAZ)
-def analizar(texto):
+def analizar(texto,consola):
     entrada = texto
     contador = 0
     # ARBOL AST
     instrucciones = parse(entrada)
-    ast = Arbol(instrucciones)
+    ast = Arbol(instrucciones,consola)
     TSGlobal = TablaSimbolos()
     ast.setTSglobal(TSGlobal)
     if len(TSGlobal.getVariables())!=0:
@@ -841,7 +846,7 @@ def analizar(texto):
             if isinstance(instruccion, Funcion):
                 # Guarda la funcion
                 ast.addFuncion(instruccion)  
-            if isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion) or isinstance(instruccion, DeclaracionArr1) or isinstance(instruccion, ModificarArreglo):
+            if isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion) or isinstance(instruccion, DeclaracionArr1) or isinstance(instruccion, DeclaracionArrReferencia) or isinstance(instruccion, ModificarArreglo):
                 value = instruccion.interpretar(ast,TSGlobal)
                 if value !=None:
                     if isinstance(value, Excepcion) :
@@ -899,12 +904,12 @@ def analizar(texto):
                             errores.append(error)
         # Toma todo lo que esta fuera del main
         for instruccion in ast.getInstrucciones():    
-            if not (isinstance(instruccion, Main) or isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion) or isinstance(instruccion, Funcion) or isinstance(instruccion, DeclaracionArr1)  or isinstance(instruccion, ModificarArreglo)):
+            if not (isinstance(instruccion, Main) or isinstance(instruccion, Declaracion) or isinstance(instruccion, Asignacion) or isinstance(instruccion, Funcion) or isinstance(instruccion, DeclaracionArr1) or isinstance(instruccion, DeclaracionArrReferencia) or isinstance(instruccion, ModificarArreglo)):
                 err = Excepcion("Semantico", "Sentencias fuera de Main", instruccion.fila, instruccion.columna)
                 ast.getExcepciones().append(err)
                 ast.updateConsola(err.toString())
                 errores.append(err)
-    
+        
         init = NodoAST("RAIZ")
         instr = NodoAST("INSTRUCCIONES")
         for instruccion in ast.getInstrucciones():
@@ -913,7 +918,7 @@ def analizar(texto):
         grafo = ast.getDot(init) #DEVUELVE EL CODIGO GRAPHVIZ DEL AST
         dirname = os.path.dirname(__file__)
         direcc = os.path.join(dirname, 'ast.dot')
-        arch = open(direcc, "w+")
+        arch = io.open(direcc, 'w', encoding='utf8')
         arch.write(grafo)
         arch.close()
         os.system('dot -T pdf -o ast.pdf ast.dot')
